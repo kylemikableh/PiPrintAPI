@@ -15,7 +15,9 @@ KEYFILE_FILE = 'keys.txt'
 
 def createDefaultFiles():
     if not keyFileExists:
-        fp = open('keys.txt', 'x')
+        fp = open(KEYFILE_FILE, 'w')
+        defaultKey = input("No keys file detected! Please enter first API key: ")
+        fp.write(defaultKey)
         fp.close()
 
 def containsRequiredArgs(request):
