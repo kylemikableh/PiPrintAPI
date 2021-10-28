@@ -1,12 +1,22 @@
 from flask import Flask
 from flask import request, jsonify
 from flask_restful import Resource, Api
+import os.path
+import logging
 
 app = Flask(__name__)
 api = Api(app)
 
 # REST Get Parameters
 ARG_KEY = 'key'
+
+# FILE Names and paths
+KEYFILE_FILE = 'keys.txt'
+
+def createDefaultFiles():
+    if not keyFileExists:
+        fp = open('keys.txt', 'x')
+        fp.close()
 
 def containsRequiredArgs(request):
     params = request.args
@@ -15,13 +25,25 @@ def containsRequiredArgs(request):
         return False
     return True
 
+def getDictOfKeys():
+    with open(KEYFILE_FILE) as f:
+        keys = f.read().splitlines()
+        return keys
+
 def verify(request):
     params = request.args
     key = params.get(ARG_KEY)
-    if not key:
-        return 
-    if(key == '1234'): # Will add reading of file with acceptable API keys
-        return True
+
+    keyFileExists = os.path.exists(KEYFILE_FILE)
+    if keyFileExists:
+        keys = getDictOfKeys()
+        if key not in keys:
+            return False
+        else: # Will add reading of file with acceptable API keys
+            return True
+    else:
+        error = '''API Key File {} was not found, rejecting all requests'''.format(KEYFILE_FILE)
+        app.logger.info(error)
     return False
 
 @app.route('/', methods=['GET'])
@@ -38,4 +60,6 @@ def print():
     return '''API key not provided'''
 
 if __name__ == '__main__':
-    app.run()
+    keyFileExists = os.path.exists(KEYFILE_FILE)
+    createDefaultFiles()
+    app.run(debug=True)
