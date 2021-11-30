@@ -1,10 +1,13 @@
-from genericpath import exists
-from sys import path
-from flask import Flask
-from flask import request, jsonify
-from flask_restful import Resource, Api
+"""
+Print anything to a DotMatrix printer and log from REST
+Initially written by Kyle Mikolajczyk (@kylemikableh)
+"""
+
+
 import os.path
-import logging
+from flask import Flask
+from flask import request
+from flask_restful import Api
 
 app = Flask(__name__)
 api = Api(app)
@@ -18,87 +21,121 @@ KEYFILE_FILE = 'keys.txt'
 PRINTLOG_FILE = 'print.log'
 
 
-def createDefaultFiles():
+def create_default_files():
+    """
+    Generate default files for the API server
+    :return:
+    """
     if not os.path.exists(KEYFILE_FILE):
-        fp = open(KEYFILE_FILE, 'w')
-        defaultKey = input("No keys file detected! Please enter first API key: ")
-        fp.write(defaultKey)
+        fp = open(KEYFILE_FILE, 'w', encoding="utf8")  # pylint: disable=invalid-name,consider-using-with
+        default_key = input("No keys file detected! Please enter first API key: ")
+        fp.write(default_key)
         fp.close()
     if not os.path.exists(PRINTLOG_FILE):
-        fp = open(PRINTLOG_FILE, 'x')
+        fp = open(PRINTLOG_FILE, 'x', encoding="utf8")  # pylint: disable=invalid-name,consider-using-with
         fp.close()
 
 
-def containsRequiredArgs(request):
-    params = request.args
+def contains_required_args(request_passed):
+    """
+    Check if the request contains an API key
+    :param request_passed: the URL request
+    :return: True if contains the key, False otherwise
+    """
+    params = request_passed.args
     key = params.get(ARG_KEY)
     if not key:
         return False
     return True
 
 
-def getDictOfKeys():
-    with open(KEYFILE_FILE) as f:
-        keys = f.read().splitlines()
+def get_dict_of_keys():
+    """
+    Grab all valid API keys from file
+    :return: dict of string of keys
+    """
+    with open(KEYFILE_FILE, encoding="utf8") as key_file:
+        keys = key_file.read().splitlines()
         return keys
 
 
-def verify(request):
-    params = request.args
+def verify(request_passed):
+    """
+    Verify that the key passed is valid
+    :param request_passed: URL request passed
+    :return: True if key is valid
+    """
+    params = request_passed.args
     key = params.get(ARG_KEY)
 
-    keyFileExists = os.path.exists(KEYFILE_FILE)
-    if keyFileExists:
-        keys = getDictOfKeys()
+    key_file_exists = os.path.exists(KEYFILE_FILE)
+    if key_file_exists:
+        keys = get_dict_of_keys()
         if key not in keys:
             return False
-        else:  # Will add reading of file with acceptable API keys
-            return True
-    else:
-        error = '''API Key File {} was not found, rejecting all requests'''.format(KEYFILE_FILE)
-        app.logger.info(error)
+        return True
+    error = '''API Key File {} was not found,
+     rejecting all requests'''.format(KEYFILE_FILE)  # pylint: disable=consider-using-f-string
+    app.logger.error(error)  # pylint: disable=no-member
     return False
 
 
-def formatForDotMatrix(data):
+def format_for_dot_matrix(data):
+    """
+    Format the data for the DotMatrix printer
+    :param data: String data to print to printer
+    :return: Correctly formatted data for printer
+    """
     return data
 
 
-def printToPrinter():
+def print_to_printer():
+    """
+    Send print data to printer, also print to log file for debugging
+    :return: String of status
+    """
     params = request.args
     data = params.get(ARG_PRINT_DATA)
     if not data:
         return '''Did not recieve any print data. Not printing.'''
-    app.logger.info('''Recieved print data: {}'''.format(data))
-    formattedData = formatForDotMatrix(data)
+    app.logger.info('''Recieved print data: {}'''.format(data))  # pylint: disable=no-member,consider-using-f-string
+    formatted_data = format_for_dot_matrix(data)
     if os.path.exists(PRINTLOG_FILE):
-        app.logger.info('''Printing to logfile recieved print data''')
-        fp = open(PRINTLOG_FILE, 'a')
-        fp.write(formattedData + "\n")
-        fp.close()
+        app.logger.info('''Printing to logfile recieved print data''')  # pylint: disable=no-member
+        log_file = open(PRINTLOG_FILE, 'a', encoding="utf8")  # pylint: disable=consider-using-with
+        log_file.write(formatted_data + "\n")
+        log_file.close()
     else:
-        app.logger.error('''Missing print file, please restart server.''')
-    return '''Recieved print data: {}'''.format(data)
+        app.logger.error('''Missing print file, please restart server.''')  # pylint: disable=no-member
+    return '''Recieved print data: {}'''.format(data)  # pylint: disable=consider-using-f-string
 
 
 @app.route('/', methods=['GET'])
 def home():
+    """
+    Default home landing page. Shouldn't do anything, might add documentation or something
+    :return:
+    """
     return '''<html><head><title>KyAPI</title></head><h1>KyAPI</h1>
 <p>Kyle's simple API server. Must supply path and API key for access.</p></html>'''
 
 
 @app.route('/print', methods=['GET'])
-def printRequest():
-    if containsRequiredArgs(request):
+def print_request():
+    """
+    The print path
+    :return: String to return to browser, e.g. HTML
+    """
+    if contains_required_args(request):
         if verify(request):
             # We have been verified, now do function
-            return printToPrinter()
+            return print_to_printer()
         return '''API Key invalid'''
     return '''API key not provided'''
 
 
 if __name__ == '__main__':
-    createDefaultFiles()
+    create_default_files()
     logFileLocation = os.path.abspath(PRINTLOG_FILE)
-    print('''Log file is located at: {}'''.format(logFileLocation))
+    print('''Log file is located at: {}'''.format(logFileLocation))  # pylint: disable=consider-using-f-string
     app.run(debug=True)
