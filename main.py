@@ -5,6 +5,8 @@ Initially written by Kyle Mikolajczyk (@kylemikableh)
 
 
 import os.path
+import platform
+from strenum import StrEnum
 from flask import Flask
 from flask import request
 from flask_restful import Api
@@ -19,6 +21,16 @@ ARG_PRINT_DATA = 'pdata'
 # FILE Names and paths
 KEYFILE_FILE = 'keys.txt'
 PRINTLOG_FILE = 'print.log'
+TEMPPRINT_FILE = 'tempprint.txt'
+
+
+class Platform(StrEnum):
+    """
+    Class for enums of Platforms to detect
+    """
+    LINUX = "Linux"
+    MAC = "Darwin"
+    WINDOWS = "Windows"
 
 
 def create_default_files():
@@ -33,6 +45,9 @@ def create_default_files():
         fp.close()
     if not os.path.exists(PRINTLOG_FILE):
         fp = open(PRINTLOG_FILE, 'x', encoding="utf8")  # pylint: disable=invalid-name,consider-using-with
+        fp.close()
+    if not os.path.exists(TEMPPRINT_FILE):
+        fp = open(TEMPPRINT_FILE, 'x', encoding="utf8")  # pylint: disable=invalid-name,consider-using-with
         fp.close()
 
 
@@ -89,9 +104,9 @@ def format_for_dot_matrix(data):
     return data
 
 
-def print_to_printer():
+def print_to_locations():
     """
-    Send print data to printer, also print to log file for debugging
+    Send print data to printing locations
     :return: String of status
     """
     params = request.args
@@ -107,7 +122,30 @@ def print_to_printer():
         log_file.close()
     else:
         app.logger.error('''Missing print file, please restart server.''')  # pylint: disable=no-member
-    return '''Recieved print data: {}'''.format(data)  # pylint: disable=consider-using-f-string
+    #
+    print_status = print_to_printer(formatted_data)
+    app.logger.error('''Print status: {}'''.format(print_status))  # pylint: disable=no-member
+    return '''Recieved print data: {}.<br> Printer status:<br>{}'''.format(data, print_status)  # pylint: disable=consider-using-f-string
+
+
+def print_to_printer(data):
+    """
+    Print to printer
+    :return:
+    """
+    log_file = open(TEMPPRINT_FILE, 'w', encoding="utf8")  # pylint: disable=consider-using-with
+    log_file.write(data)
+    log_file.close()
+    current_platform = platform.system()
+    app.logger.error('''Printing to printer with os: {}'''.format(current_platform))  # pylint: disable=no-member
+    if current_platform == Platform.WINDOWS:
+        os.startfile(PRINTLOG_FILE, "print")
+        return '''Platform detected: WINDOWS'''
+    if current_platform == Platform.MAC:
+        return '''Platform detected: MAC'''
+    if current_platform == Platform.LINUX:
+        return '''Platform detected: LINUX'''
+    return '''Did not find platform: {}'''.format(Platform.MAC)
 
 
 @app.route('/', methods=['GET'])
@@ -129,7 +167,7 @@ def print_request():
     if contains_required_args(request):
         if verify(request):
             # We have been verified, now do function
-            return print_to_printer()
+            return print_to_locations()
         return '''API Key invalid'''
     return '''API key not provided'''
 
@@ -138,4 +176,6 @@ if __name__ == '__main__':
     create_default_files()
     logFileLocation = os.path.abspath(PRINTLOG_FILE)
     print('''Log file is located at: {}'''.format(logFileLocation))  # pylint: disable=consider-using-f-string
+    keysFileLocation = os.path.abspath(KEYFILE_FILE)
+    print('''Key file is located at: {}'''.format(keysFileLocation))  # pylint: disable=consider-using-f-string
     app.run(debug=True)
