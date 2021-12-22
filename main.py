@@ -6,6 +6,7 @@ Initially written by Kyle Mikolajczyk (@kylemikableh)
 
 import os.path
 import platform
+import subprocess
 from strenum import StrEnum
 from flask import Flask
 from flask import request
@@ -144,6 +145,9 @@ def print_to_printer(data):
     if current_platform == Platform.MAC:
         return '''Platform detected: MAC'''
     if current_platform == Platform.LINUX:
+        cmd = '''lp -o raw {}'''.format(PRINTLOG_FILE)
+        subprocess.run(
+            cmd, shell=True)
         return '''Platform detected: LINUX'''
     return '''Did not find platform: {}'''.format(Platform.MAC)
 
