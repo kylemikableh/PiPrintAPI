@@ -182,4 +182,4 @@ if __name__ == '__main__':
     print('''Log file is located at: {}'''.format(logFileLocation))  # pylint: disable=consider-using-f-string
     keysFileLocation = os.path.abspath(KEYFILE_FILE)
     print('''Key file is located at: {}'''.format(keysFileLocation))  # pylint: disable=consider-using-f-string
-    app.run()
+    app.run('0.0.0.0', port=5000)
