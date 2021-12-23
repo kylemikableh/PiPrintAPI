@@ -141,7 +141,9 @@ def print_to_printer(data):
     log_file.close()
     current_platform = platform.system()
     app.logger.error('''Printing to printer with os: {}'''.format(current_platform))  # pylint: disable=no-member
-    app.logger.error('''File to print contains: {}'''.format(log_file.read()))  # pylint: disable=no-member
+    with open(TEMPPRINT_FILE, encoding="utf8") as key_file:
+        key = key_file.read()
+        app.logger.error('''File to print contains: {}'''.format(key))  # pylint: disable=no-member
     if current_platform == Platform.WINDOWS:
         os.startfile(TEMPPRINT_FILE, "print")
         return '''Platform detected: WINDOWS'''
