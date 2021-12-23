@@ -7,6 +7,7 @@ Initially written by Kyle Mikolajczyk (@kylemikableh)
 import os.path
 import platform
 import subprocess
+import time
 from strenum import StrEnum
 from flask import Flask
 from flask import request
@@ -140,6 +141,7 @@ def print_to_printer(data):
     log_file.close()
     current_platform = platform.system()
     app.logger.error('''Printing to printer with os: {}'''.format(current_platform))  # pylint: disable=no-member
+    time.sleep(500)
     if current_platform == Platform.WINDOWS:
         os.startfile(PRINTLOG_FILE, "print")
         return '''Platform detected: WINDOWS'''
