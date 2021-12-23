@@ -7,7 +7,7 @@ Initially written by Kyle Mikolajczyk (@kylemikableh)
 import os.path
 import platform
 import subprocess
-import time
+from datetime import datetime
 from strenum import StrEnum
 from flask import Flask
 from flask import request
@@ -103,7 +103,10 @@ def format_for_dot_matrix(data):
     :param data: String data to print to printer
     :return: Correctly formatted data for printer
     """
-    return data
+    now = datetime.now()
+    dt_string = now.strftime("[%d/%m/%Y %H:%M:%S] ")
+    return_data = dt_string + data
+    return return_data
 
 
 def print_to_locations():
