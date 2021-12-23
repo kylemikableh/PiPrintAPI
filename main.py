@@ -135,6 +135,7 @@ def print_to_printer(data):
     :return:
     """
     log_file = open(TEMPPRINT_FILE, 'w', encoding="utf8")  # pylint: disable=consider-using-with
+    log_file.write('\n')  # Fix for CUPS not printing the first line
     log_file.write(data)
     log_file.close()
     current_platform = platform.system()
@@ -182,4 +183,4 @@ if __name__ == '__main__':
     print('''Log file is located at: {}'''.format(logFileLocation))  # pylint: disable=consider-using-f-string
     keysFileLocation = os.path.abspath(KEYFILE_FILE)
     print('''Key file is located at: {}'''.format(keysFileLocation))  # pylint: disable=consider-using-f-string
-    app.run('0.0.0.0', port=5000)
+    app.run('0.0.0.0', port=5000, debug=True)
