@@ -104,7 +104,7 @@ def format_for_dot_matrix(data):
     :return: Correctly formatted data for printer
     """
     now = datetime.now()
-    dt_string = now.strftime("[%d/%m/%Y %H:%M:%S] ")
+    dt_string = now.strftime("[%m/%d/%y/%H:%M:%S] ")
     return_data = dt_string + data
     return return_data
 
@@ -133,6 +133,30 @@ def print_to_locations():
     return '''Recieved print data: {}.<br> Printer status:<br>{}'''.format(data, print_status)  # pylint: disable=consider-using-f-string
 
 
+def cups_hold_release():
+    """
+    For CUPS we need to hold the print and set the release to 1 second later'
+    (This is a workaround for CUPS always printing the previous document for some reason, this fixes that)
+    :return:
+    """
+    now = datetime.now()
+    dt_hour_str = now.strftime("%H")
+    dt_min_str = now.strftime("%M")
+    dt_sec_str = now.strftime("%S")
+    dt_sec_str = "" + int(dt_sec_str) + 1 #  add one sec for printing a second from now
+    # Handle edge cases/cascades
+    if dt_sec_str > 59:
+        dt_sec_str = "0"
+        dt_min_str = "" + int(dt_min_str) + 1 #  add one min
+    if dt_min_str > 59:
+        dt_min_str = "0"
+        dt_hour_str = "" + int(dt_hour_str) + 1
+    if dt_hour_str > 23:
+        dt_hour_str = "0"
+    cmd = '''lp -o raw -o job-hold-until={}:{}:{} {}'''.format(dt_hour_str, dt_min_str, dt_sec_str, TEMPPRINT_FILE)
+    subprocess.run(
+        cmd, shell=True)
+
 def print_to_printer(data):
     """
     Print to printer
@@ -153,9 +177,7 @@ def print_to_printer(data):
     if current_platform == Platform.MAC:
         return '''Platform detected: MAC'''
     if current_platform == Platform.LINUX:
-        cmd = '''lp -o raw {}'''.format(TEMPPRINT_FILE)
-        subprocess.run(
-            cmd, shell=True)
+        cups_hold_release()
         return '''Platform detected: LINUX'''
     return '''Did not find platform: {}'''.format(Platform.MAC)
 
