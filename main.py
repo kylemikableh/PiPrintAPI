@@ -177,7 +177,9 @@ def print_to_printer(data):
     if current_platform == Platform.MAC:
         return '''Platform detected: MAC'''
     if current_platform == Platform.LINUX:
-        cups_hold_release()
+        cmd = '''lp -o raw {}'''.format(TEMPPRINT_FILE)
+        subprocess.run(
+            cmd, shell=True)
         return '''Platform detected: LINUX'''
     return '''Did not find platform: {}'''.format(Platform.MAC)
 
