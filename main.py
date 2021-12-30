@@ -2,7 +2,9 @@
 PiPrint API
 Print anything to a (DotMatrix) printer and log from REST
 
-Copyright (c) Kyle Mikolajczyk (@kylemikableh)
+MIT License
+
+Copyright (c) 2021 Kyle Mikolajczyk
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
