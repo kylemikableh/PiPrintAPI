@@ -1,6 +1,26 @@
 """
-Print anything to a DotMatrix printer and log from REST
-Initially written by Kyle Mikolajczyk (@kylemikableh)
+PiPrint API
+Print anything to a (DotMatrix) printer and log from REST
+
+Copyright (c) Kyle Mikolajczyk (@kylemikableh)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 """
 
 
@@ -129,14 +149,15 @@ def print_to_locations():
         app.logger.error('''Missing print file, please restart server.''')  # pylint: disable=no-member
     #
     print_status = print_to_printer(formatted_data)
-    app.logger.error('''Print status: {}'''.format(print_status))  # pylint: disable=no-member
+    app.logger.error('''Print status: {}'''.format(print_status))  # pylint: disable=no-member,consider-using-f-string
     return '''Recieved print data: {}.<br> Printer status:<br>{}'''.format(data, print_status)  # pylint: disable=consider-using-f-string
 
 
 def cups_hold_release():
     """
     For CUPS we need to hold the print and set the release to 1 second later'
-    (This is a workaround for CUPS always printing the previous document for some reason, this fixes that)
+    (This is a workaround for CUPS always printing the previous document
+    for some reason, this is supposed to fix that) (Currently not working)
     :return:
     """
     now = datetime.now()
@@ -147,15 +168,16 @@ def cups_hold_release():
     # Handle edge cases/cascades
     if int(dt_sec_str) > 59:
         dt_sec_str = "0"
-        dt_min_str = str(int(dt_min_str) + 1) #  add one min
+        dt_min_str = str(int(dt_min_str) + 1)  # add one min
     if int(dt_min_str) > 59:
         dt_min_str = "0"
         dt_hour_str = str(int(dt_hour_str) + 1)
     if int(dt_hour_str) > 23:
         dt_hour_str = "0"
-    cmd = '''lp -o raw -o job-hold-until={}:{}:{} {}'''.format(dt_hour_str, dt_min_str, dt_sec_str, TEMPPRINT_FILE)
-    subprocess.run(
-        cmd, shell=True)
+    cmd = '''lp -o raw -o job-hold-until={}:{}:{} {}
+    '''.format(dt_hour_str, dt_min_str, dt_sec_str, TEMPPRINT_FILE)  # pylint: disable=consider-using-f-string
+    subprocess.run(cmd, shell=True, check=True)
+
 
 def print_to_printer(data):
     """
@@ -167,21 +189,20 @@ def print_to_printer(data):
     log_file.write(data)
     log_file.close()
     current_platform = platform.system()
-    app.logger.error('''Printing to printer with os: {}'''.format(current_platform))  # pylint: disable=no-member
+    app.logger.error('''Printing to printer with os: {}'''.format(current_platform))  # pylint: disable=no-member,consider-using-f-string
     with open(TEMPPRINT_FILE, encoding="utf8") as key_file:
         key = key_file.read()
-        app.logger.error('''File to print contains: {}'''.format(key))  # pylint: disable=no-member
+        app.logger.error('''File to print contains: {}'''.format(key))  # pylint: disable=no-member,consider-using-f-string
     if current_platform == Platform.WINDOWS:
         os.startfile(TEMPPRINT_FILE, "print")
         return '''Platform detected: WINDOWS'''
     if current_platform == Platform.MAC:
         return '''Platform detected: MAC'''
     if current_platform == Platform.LINUX:
-        cmd = '''lp -o raw {}'''.format(TEMPPRINT_FILE)
-        subprocess.run(
-            cmd, shell=True)
+        cmd = '''lp -o raw {}'''.format(TEMPPRINT_FILE)  # pylint: disable=consider-using-f-string
+        subprocess.run(cmd, shell=True, check=True)
         return '''Platform detected: LINUX'''
-    return '''Did not find platform: {}'''.format(Platform.MAC)
+    return '''Did not find platform: {}'''.format(Platform.MAC)  # pylint: disable=consider-using-f-string
 
 
 @app.route('/', methods=['GET'])
@@ -190,7 +211,7 @@ def home():
     Default home landing page. Shouldn't do anything, might add documentation or something
     :return:
     """
-    return '''<html><head><title>KyAPI</title></head><h1>KyAPI</h1>
+    return '''<html><head><title>PiPrint API</title></head><h1>PiPrint API</h1>
 <p>Kyle's simple API server. Must supply path and API key for access.</p></html>'''
 
 
