@@ -1,10 +1,36 @@
 """
-Print anything to a DotMatrix printer and log from REST
-Initially written by Kyle Mikolajczyk (@kylemikableh)
+PiPrint API
+Print anything to a (DotMatrix) printer and log from REST
+
+MIT License
+
+Copyright (c) 2021 Kyle Mikolajczyk
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 """
 
 
 import os.path
+import platform
+import subprocess
+from datetime import datetime
+from strenum import StrEnum
 from flask import Flask
 from flask import request
 from flask_restful import Api
@@ -19,6 +45,16 @@ ARG_PRINT_DATA = 'pdata'
 # FILE Names and paths
 KEYFILE_FILE = 'keys.txt'
 PRINTLOG_FILE = 'print.log'
+TEMPPRINT_FILE = 'tempprint.txt'
+
+
+class Platform(StrEnum):
+    """
+    Class for enums of Platforms to detect
+    """
+    LINUX = "Linux"
+    MAC = "Darwin"
+    WINDOWS = "Windows"
 
 
 def create_default_files():
@@ -33,6 +69,9 @@ def create_default_files():
         fp.close()
     if not os.path.exists(PRINTLOG_FILE):
         fp = open(PRINTLOG_FILE, 'x', encoding="utf8")  # pylint: disable=invalid-name,consider-using-with
+        fp.close()
+    if not os.path.exists(TEMPPRINT_FILE):
+        fp = open(TEMPPRINT_FILE, 'x', encoding="utf8")  # pylint: disable=invalid-name,consider-using-with
         fp.close()
 
 
@@ -86,12 +125,15 @@ def format_for_dot_matrix(data):
     :param data: String data to print to printer
     :return: Correctly formatted data for printer
     """
-    return data
+    now = datetime.now()
+    dt_string = now.strftime("[%m/%d/%y/%H:%M:%S] ")
+    return_data = dt_string + data
+    return return_data
 
 
-def print_to_printer():
+def print_to_locations():
     """
-    Send print data to printer, also print to log file for debugging
+    Send print data to printing locations
     :return: String of status
     """
     params = request.args
@@ -107,7 +149,62 @@ def print_to_printer():
         log_file.close()
     else:
         app.logger.error('''Missing print file, please restart server.''')  # pylint: disable=no-member
-    return '''Recieved print data: {}'''.format(data)  # pylint: disable=consider-using-f-string
+    #
+    print_status = print_to_printer(formatted_data)
+    app.logger.error('''Print status: {}'''.format(print_status))  # pylint: disable=no-member,consider-using-f-string
+    return '''Recieved print data: {}.<br> Printer status:<br>{}'''.format(data, print_status)  # pylint: disable=consider-using-f-string
+
+
+def cups_hold_release():
+    """
+    For CUPS we need to hold the print and set the release to 1 second later'
+    (This is a workaround for CUPS always printing the previous document
+    for some reason, this is supposed to fix that) (Currently not working)
+    :return:
+    """
+    now = datetime.now()
+    dt_hour_str = now.strftime("%H")
+    dt_min_str = now.strftime("%M")
+    dt_sec_str = now.strftime("%S")
+    dt_sec_str = str(int(dt_sec_str) + 1) #  add one sec for printing a second from now
+    # Handle edge cases/cascades
+    if int(dt_sec_str) > 59:
+        dt_sec_str = "0"
+        dt_min_str = str(int(dt_min_str) + 1)  # add one min
+    if int(dt_min_str) > 59:
+        dt_min_str = "0"
+        dt_hour_str = str(int(dt_hour_str) + 1)
+    if int(dt_hour_str) > 23:
+        dt_hour_str = "0"
+    cmd = '''lp -o raw -o job-hold-until={}:{}:{} {}
+    '''.format(dt_hour_str, dt_min_str, dt_sec_str, TEMPPRINT_FILE)  # pylint: disable=consider-using-f-string
+    subprocess.run(cmd, shell=True, check=True)
+
+
+def print_to_printer(data):
+    """
+    Print to printer
+    :return:
+    """
+    log_file = open(TEMPPRINT_FILE, 'w', encoding="utf8")  # pylint: disable=consider-using-with
+    log_file.write('\n')  # Fix for CUPS not printing the first line
+    log_file.write(data)
+    log_file.close()
+    current_platform = platform.system()
+    app.logger.error('''Printing to printer with os: {}'''.format(current_platform))  # pylint: disable=no-member,consider-using-f-string
+    with open(TEMPPRINT_FILE, encoding="utf8") as key_file:
+        key = key_file.read()
+        app.logger.error('''File to print contains: {}'''.format(key))  # pylint: disable=no-member,consider-using-f-string
+    if current_platform == Platform.WINDOWS:
+        os.startfile(TEMPPRINT_FILE, "print")
+        return '''Platform detected: WINDOWS'''
+    if current_platform == Platform.MAC:
+        return '''Platform detected: MAC'''
+    if current_platform == Platform.LINUX:
+        cmd = '''lp -o raw {}'''.format(TEMPPRINT_FILE)  # pylint: disable=consider-using-f-string
+        subprocess.run(cmd, shell=True, check=True)
+        return '''Platform detected: LINUX'''
+    return '''Did not find platform: {}'''.format(Platform.MAC)  # pylint: disable=consider-using-f-string
 
 
 @app.route('/', methods=['GET'])
@@ -116,7 +213,7 @@ def home():
     Default home landing page. Shouldn't do anything, might add documentation or something
     :return:
     """
-    return '''<html><head><title>KyAPI</title></head><h1>KyAPI</h1>
+    return '''<html><head><title>PiPrint API</title></head><h1>PiPrint API</h1>
 <p>Kyle's simple API server. Must supply path and API key for access.</p></html>'''
 
 
@@ -129,7 +226,7 @@ def print_request():
     if contains_required_args(request):
         if verify(request):
             # We have been verified, now do function
-            return print_to_printer()
+            return print_to_locations()
         return '''API Key invalid'''
     return '''API key not provided'''
 
@@ -138,4 +235,6 @@ if __name__ == '__main__':
     create_default_files()
     logFileLocation = os.path.abspath(PRINTLOG_FILE)
     print('''Log file is located at: {}'''.format(logFileLocation))  # pylint: disable=consider-using-f-string
-    app.run(debug=True)
+    keysFileLocation = os.path.abspath(KEYFILE_FILE)
+    print('''Key file is located at: {}'''.format(keysFileLocation))  # pylint: disable=consider-using-f-string
+    app.run('0.0.0.0', port=5000, debug=True)
