@@ -71,7 +71,7 @@ def create_default_files():
         fp = open(PRINTLOG_FILE, 'x', encoding="utf8")  # pylint: disable=invalid-name,consider-using-with
         fp.close()
     if not os.path.exists(TEMPPRINT_FILE):
-        fp = open(TEMPPRINT_FILE, 'x', encoding="utf8")  # pylint: disable=invalid-name,consider-using-with
+        fp = open(TEMPPRINT_FILE, 'x', encoding="us-ascii")  # pylint: disable=invalid-name,consider-using-with
         fp.close()
 
 
@@ -126,7 +126,7 @@ def format_for_dot_matrix(data):
     :return: Correctly formatted data for printer
     """
     now = datetime.now()
-    dt_string = now.strftime("[%m/%d/%y/%H:%M:%S] ")
+    dt_string = now.strftime("[%m/%d/%y-%H:%M:%S] ")
     return_data = dt_string + data
     return return_data
 
@@ -155,40 +155,14 @@ def print_to_locations():
     return '''Recieved print data: {}.<br> Printer status:<br>{}'''.format(data, print_status)  # pylint: disable=consider-using-f-string
 
 
-def cups_hold_release():
-    """
-    For CUPS we need to hold the print and set the release to 1 second later'
-    (This is a workaround for CUPS always printing the previous document
-    for some reason, this is supposed to fix that) (Currently not working)
-    :return:
-    """
-    now = datetime.now()
-    dt_hour_str = now.strftime("%H")
-    dt_min_str = now.strftime("%M")
-    dt_sec_str = now.strftime("%S")
-    dt_sec_str = str(int(dt_sec_str) + 1) #  add one sec for printing a second from now
-    # Handle edge cases/cascades
-    if int(dt_sec_str) > 59:
-        dt_sec_str = "0"
-        dt_min_str = str(int(dt_min_str) + 1)  # add one min
-    if int(dt_min_str) > 59:
-        dt_min_str = "0"
-        dt_hour_str = str(int(dt_hour_str) + 1)
-    if int(dt_hour_str) > 23:
-        dt_hour_str = "0"
-    cmd = '''lp -o raw -o job-hold-until={}:{}:{} {}
-    '''.format(dt_hour_str, dt_min_str, dt_sec_str, TEMPPRINT_FILE)  # pylint: disable=consider-using-f-string
-    subprocess.run(cmd, shell=True, check=True)
-
-
 def print_to_printer(data):
     """
     Print to printer
     :return:
     """
-    log_file = open(TEMPPRINT_FILE, 'w', encoding="utf8")  # pylint: disable=consider-using-with
-    log_file.write('\n')  # Fix for CUPS not printing the first line
+    log_file = open(TEMPPRINT_FILE, 'w', encoding="us-ascii")  # pylint: disable=consider-using-with
     log_file.write(data)
+    log_file.write('\n')  # ASCII with line terminator
     log_file.close()
     current_platform = platform.system()
     app.logger.error('''Printing to printer with os: {}'''.format(current_platform))  # pylint: disable=no-member,consider-using-f-string
@@ -202,7 +176,7 @@ def print_to_printer(data):
         return '''Platform detected: MAC'''
     if current_platform == Platform.LINUX:
         cmd = '''lp -o raw {}'''.format(TEMPPRINT_FILE)  # pylint: disable=consider-using-f-string
-        subprocess.run(cmd, shell=True, check=True)
+        subprocess.run(cmd, shell=True)
         return '''Platform detected: LINUX'''
     return '''Did not find platform: {}'''.format(Platform.MAC)  # pylint: disable=consider-using-f-string
 
